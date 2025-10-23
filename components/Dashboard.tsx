@@ -1,6 +1,6 @@
 import React from 'react';
 import { UserRole } from '../types';
-import { Stethoscope, User, Briefcase, BarChart2, Users } from 'lucide-react';
+import { Stethoscope, User, Briefcase, BarChart2, Users, ConciergeBell } from 'lucide-react';
 
 interface DashboardProps {
   onSelectRole: (role: UserRole) => void;
@@ -8,6 +8,7 @@ interface DashboardProps {
 
 const roleData = [
     { role: UserRole.Patient, title: 'Patient', description: 'Access your portal, book appointments, and view your medical records.', icon: User },
+    { role: UserRole.Receptionist, title: 'Receptionist', description: 'Manage patient registrations and check-ins.', icon: ConciergeBell },
     { role: UserRole.Doctor, title: 'Doctor', description: 'Manage your patient queue, access clinical data, and use AI-Copilot.', icon: Briefcase },
     { role: UserRole.Admin, title: 'Intern', description: 'View hospital analytics, learn workflows, and assist with system management.', icon: BarChart2 },
     { role: UserRole.Nurse, title: 'Nurse Head', description: 'Oversee the triage process, manage patient flow, and coordinate with staff.', icon: Stethoscope },

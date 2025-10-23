@@ -1,9 +1,10 @@
+
 import React, { useState, useMemo } from 'react';
 import { Patient, Appointment } from '../types';
 import Button from './common/Button';
 import Card from './common/Card';
 import AppointmentBookingScreen from './AppointmentBookingScreen';
-import { ArrowLeft, UserPlus, LogIn, LogOut, ShieldCheck, PlusCircle, User, Cake, VenetianMask, Phone, Mail, Heart } from 'lucide-react';
+import { ArrowLeft, UserPlus, LogIn, LogOut, ShieldCheck, PlusCircle, User, Cake, VenetianMask, Phone, Mail, Heart, Clock } from 'lucide-react';
 
 interface PatientViewProps {
   requestAppointment: (patient: Omit<Patient, 'id' | 'registrationDate' | 'status'>) => void;
@@ -125,7 +126,7 @@ const PatientView: React.FC<PatientViewProps> = ({ requestAppointment, appointme
     const newPatient: Patient = {
       id: Math.floor(100000 + Math.random() * 900000),
       registrationDate: new Date().toISOString(),
-      status: 'Awaiting Triage', // Placeholder
+      status: 'Awaiting Check-in', // Placeholder
       name: signupData.name,
       dob: signupData.dob,
       gender: signupData.gender as Patient['gender'],
@@ -172,6 +173,15 @@ const PatientView: React.FC<PatientViewProps> = ({ requestAppointment, appointme
     if (!patient) return [];
     return appointments.filter(a => a.patient.name === patient.name && a.patient.dob === patient.dob);
   }, [appointments, patient]);
+
+  const getStatusBadge = (status: Appointment['status']) => {
+    switch (status) {
+        case 'Scheduled': return 'bg-blue-100 text-blue-800';
+        case 'Completed': return 'bg-green-100 text-green-800';
+        case 'Pending Confirmation': return 'bg-yellow-100 text-yellow-800';
+        case 'Cancelled': return 'bg-gray-100 text-gray-800';
+    }
+  }
 
   const renderContent = () => {
     switch (view) {
@@ -390,10 +400,10 @@ const PatientView: React.FC<PatientViewProps> = ({ requestAppointment, appointme
             </div>
             
             {submitted && loggedInView === 'DASHBOARD' && (
-                <Card className="mb-6 bg-green-50 border-green-200">
+                <Card className="mb-6 bg-yellow-50 border-yellow-200">
                   <div className="text-center p-4">
-                    <h3 className="text-xl font-semibold text-green-700">Request Sent Successfully!</h3>
-                    <p className="text-green-600 mt-2">A nurse will review your request shortly. You will be contacted for the next steps.</p>
+                    <h3 className="text-xl font-semibold text-yellow-700">Request Sent!</h3>
+                    <p className="text-yellow-600 mt-2">Your appointment request is pending confirmation. You will be notified shortly.</p>
                     <Button onClick={() => setSubmitted(false)} className="mt-6">Acknowledge</Button>
                   </div>
                 </Card>
@@ -464,11 +474,11 @@ const PatientView: React.FC<PatientViewProps> = ({ requestAppointment, appointme
                                     {patientAppointments.map(appt => (
                                         <li key={appt.id} className="p-4 bg-gray-50 rounded-lg border flex justify-between items-center">
                                             <div>
-                                                <p className="font-semibold text-brand">{appt.doctor}</p>
+                                                <p className="font-semibold text-brand">{appt.patient.department}</p>
                                                 <p className="text-sm text-gray-600">{new Date(appt.date).toLocaleString()}</p>
                                                 <p className="text-sm text-gray-500 mt-1">Reason: {appt.reason}</p>
                                             </div>
-                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${appt.status === 'Scheduled' ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}`}>{appt.status}</span>
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(appt.status)}`}>{appt.status}</span>
                                         </li>
                                     ))}
                                 </ul>

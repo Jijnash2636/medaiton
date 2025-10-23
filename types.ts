@@ -1,8 +1,10 @@
+
 export enum UserRole {
   Patient = 'Patient',
   Nurse = 'Nurse',
   Doctor = 'Doctor',
   Admin = 'Admin',
+  Receptionist = 'Receptionist',
 }
 
 export interface TriageSuggestion {
@@ -32,7 +34,7 @@ export interface Patient {
   guardianName?: string;
   symptoms: string;
   registrationDate: string;
-  status: 'Awaiting Triage' | 'Awaiting Doctor' | 'Completed';
+  status: 'Awaiting Check-in' | 'Awaiting Triage' | 'Awaiting Doctor' | 'Completed';
   vitals?: Vitals;
   triageSuggestion?: TriageSuggestion;
   isUrgentRequest: boolean;
@@ -46,6 +48,6 @@ export interface Appointment {
   doctor: string;
   date: string;
   reason: string;
-  status: 'Scheduled' | 'Completed' | 'Cancelled';
+  status: 'Pending Confirmation' | 'Scheduled' | 'Completed' | 'Cancelled';
   notes?: string; // For SOAP notes
 }
