@@ -9,9 +9,9 @@ interface DashboardProps {
 const roleData = [
     { role: UserRole.Patient, title: 'Patient', description: 'Access your portal, book appointments, and view your medical records.', icon: User },
     { role: UserRole.Receptionist, title: 'Receptionist', description: 'Manage patient registrations and check-ins.', icon: ConciergeBell },
+    { role: UserRole.Intern, title: 'Intern', description: 'Handle patient triage, record vitals, and assign patients to specialists.', icon: Stethoscope },
     { role: UserRole.Doctor, title: 'Doctor', description: 'Manage your patient queue, access clinical data, and use AI-Copilot.', icon: Briefcase },
-    { role: UserRole.Admin, title: 'Intern', description: 'View hospital analytics, learn workflows, and assist with system management.', icon: BarChart2 },
-    { role: UserRole.Nurse, title: 'Nurse Head', description: 'Oversee the triage process, manage patient flow, and coordinate with staff.', icon: Stethoscope },
+    { role: UserRole.Admin, title: 'Admin', description: 'View hospital analytics, manage system data, and oversee operations.', icon: BarChart2 },
     { role: null, title: 'Others', description: 'Access departmental tools for Pharmacy, Labs, and Administration.', icon: Users },
 ];
 

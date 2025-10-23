@@ -1,7 +1,7 @@
 
 export enum UserRole {
   Patient = 'Patient',
-  Nurse = 'Nurse',
+  Intern = 'Intern',
   Doctor = 'Doctor',
   Admin = 'Admin',
   Receptionist = 'Receptionist',
@@ -20,6 +20,17 @@ export interface Vitals {
   spo2: number;
 }
 
+export interface AuditEntry {
+    timestamp: string;
+    action: string;
+    user: {
+        id: string;
+        name: string;
+        role: UserRole;
+    };
+    details?: Record<string, any>;
+}
+
 export interface Patient {
   id: number;
   name: string;
@@ -28,6 +39,7 @@ export interface Patient {
   mobileNumber: string;
   email?: string;
   password?: string; // For demo login simulation
+  previousPassword?: string; // To track password changes for admin
   isPregnant?: boolean;
   maritalStatus: 'Single' | 'Married';
   spouseName?: string;
@@ -39,6 +51,8 @@ export interface Patient {
   triageSuggestion?: TriageSuggestion;
   isUrgentRequest: boolean;
   department?: string;
+  chiefComplaintByIntern?: string;
+  auditLog: AuditEntry[];
 }
 
 export interface Appointment {
@@ -48,6 +62,13 @@ export interface Appointment {
   doctor: string;
   date: string;
   reason: string;
-  status: 'Pending Confirmation' | 'Scheduled' | 'Completed' | 'Cancelled';
+  status: 'Pending Confirmation' | 'Slot Allocated' | 'Scheduled' | 'Completed' | 'Cancelled';
   notes?: string; // For SOAP notes
+}
+
+export interface ProfessionalUser {
+    id: string;
+    name: string;
+    password?: string;
+    role: UserRole;
 }

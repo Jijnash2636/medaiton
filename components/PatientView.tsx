@@ -1,4 +1,5 @@
 
+
 import React, { useState, useMemo } from 'react';
 import { Patient, Appointment } from '../types';
 import Button from './common/Button';
@@ -7,17 +8,19 @@ import AppointmentBookingScreen from './AppointmentBookingScreen';
 import { ArrowLeft, UserPlus, LogIn, LogOut, ShieldCheck, PlusCircle, User, Cake, VenetianMask, Phone, Mail, Heart, Clock } from 'lucide-react';
 
 interface PatientViewProps {
-  requestAppointment: (patient: Omit<Patient, 'id' | 'registrationDate' | 'status'>) => void;
+  requestAppointment: (patient: Patient, appointmentDetails: {symptoms: string, department: string, isUrgentRequest: boolean, appointmentDateTime: string}) => void;
   appointments: Appointment[];
   onBack: () => void;
+  registeredPatients: Patient[];
+  onRegister: (patientData: Omit<Patient, 'id' | 'registrationDate' | 'status' | 'auditLog'>) => Patient;
+  onUpdatePassword: (patientId: number, newPassword: string) => void;
 }
 
-const PatientView: React.FC<PatientViewProps> = ({ requestAppointment, appointments, onBack }) => {
-  const [view, setView] = useState<'AUTH' | 'SIGNUP' | 'LOGIN' | 'LOGGED_IN'>('AUTH');
+const PatientView: React.FC<PatientViewProps> = ({ requestAppointment, appointments, onBack, registeredPatients, onRegister, onUpdatePassword }) => {
+  const [view, setView] = useState<'AUTH' | 'SIGNUP' | 'LOGIN' | 'LOGGED_IN' | 'FORGOT_PASSWORD_MOBILE' | 'FORGOT_PASSWORD_OTP' | 'FORGOT_PASSWORD_RESET'>('AUTH');
   const [loggedInView, setLoggedInView] = useState<'DASHBOARD' | 'BOOKING'>('DASHBOARD');
   const [patient, setPatient] = useState<Patient | null>(null);
   const [submitted, setSubmitted] = useState(false);
-  const [registeredUsers, setRegisteredUsers] = useState<Patient[]>([]);
   
   // Login State
   const [loginIdentifier, setLoginIdentifier] = useState('');
@@ -42,6 +45,13 @@ const PatientView: React.FC<PatientViewProps> = ({ requestAppointment, appointme
   const [otpInput, setOtpInput] = useState('');
   const [otpVerified, setOtpVerified] = useState(false);
 
+  // Forgot Password State
+  const [recoveryMobile, setRecoveryMobile] = useState('');
+  const [recoveryOtpInput, setRecoveryOtpInput] = useState('');
+  const [recoveredPatient, setRecoveredPatient] = useState<Patient | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  
   const handleSignupChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
@@ -70,7 +80,6 @@ const PatientView: React.FC<PatientViewProps> = ({ requestAppointment, appointme
           return;
       }
       setOtpSent(true);
-      // In a real app, an API call would be made here.
       alert('An OTP has been sent to your mobile number. (For demo, use 123456)');
   };
 
@@ -93,19 +102,24 @@ const PatientView: React.FC<PatientViewProps> = ({ requestAppointment, appointme
             alert('Invalid Patient ID format. Please use PID###### or just the number.');
             return;
         }
-        foundPatient = registeredUsers.find(p => p.id === pidToFind);
+        foundPatient = registeredPatients.find(p => p.id === pidToFind);
     } else {
-        foundPatient = registeredUsers.find(p => p.mobileNumber === loginIdentifier);
+        foundPatient = registeredPatients.find(p => p.mobileNumber === loginIdentifier);
     }
     
-    if (foundPatient && foundPatient.password === password) {
+    if (!foundPatient) {
+        alert(`No patient found with this ${identifierType === 'PID' ? 'Patient ID' : 'Mobile Number'}. Please check your details or sign up.`);
+        return;
+    }
+
+    if (foundPatient.password === password) {
         setPatient(foundPatient);
         setView('LOGGED_IN');
         setLoggedInView('DASHBOARD');
         setLoginIdentifier('');
         setPassword('');
     } else {
-        alert('Invalid credentials. Please check your details or sign up.');
+        alert('Incorrect password. Please try again.');
     }
   };
 
@@ -123,10 +137,7 @@ const PatientView: React.FC<PatientViewProps> = ({ requestAppointment, appointme
         alert('Please verify your mobile number before proceeding.');
         return;
     }
-    const newPatient: Patient = {
-      id: Math.floor(100000 + Math.random() * 900000),
-      registrationDate: new Date().toISOString(),
-      status: 'Awaiting Check-in', // Placeholder
+    const newPatientData: Omit<Patient, 'id' | 'registrationDate' | 'status' | 'auditLog'> = {
       name: signupData.name,
       dob: signupData.dob,
       gender: signupData.gender as Patient['gender'],
@@ -137,41 +148,75 @@ const PatientView: React.FC<PatientViewProps> = ({ requestAppointment, appointme
       maritalStatus: signupData.maritalStatus,
       spouseName: signupData.spouseName,
       guardianName: signupData.guardianName,
-      symptoms: '', // To be filled in next step
+      symptoms: '', 
       isUrgentRequest: false,
     };
-    setRegisteredUsers(prev => [...prev, newPatient]);
+    
+    const newPatient = onRegister(newPatientData);
     setPatient(newPatient);
     setLoggedInView('DASHBOARD');
     setView('LOGGED_IN');
     alert(`Registration successful! Your Patient ID is PID${String(newPatient.id).padStart(6, '0')}. Please save it for future logins.`);
   };
 
-  const handleAppointmentSubmit = (data: { symptoms: string; isUrgentRequest: boolean; department: string; appointmentDate: string }) => {
+  const handleAppointmentSubmit = (data: { symptoms: string; isUrgentRequest: boolean; department: string; appointmentDateTime: string }) => {
     if (!patient) return;
-    const finalPatientData: Omit<Patient, 'id' | 'registrationDate' | 'status'> = {
-        name: patient.name,
-        dob: patient.dob,
-        gender: patient.gender,
-        mobileNumber: patient.mobileNumber,
-        email: patient.email,
-        password: patient.password,
-        isPregnant: patient.isPregnant,
-        maritalStatus: patient.maritalStatus,
-        spouseName: patient.spouseName,
-        guardianName: patient.guardianName,
-        symptoms: data.symptoms,
-        department: data.department,
-        isUrgentRequest: data.isUrgentRequest,
-    };
-    requestAppointment(finalPatientData);
+    
+    requestAppointment(patient, data);
+
     setSubmitted(true);
     setLoggedInView('DASHBOARD');
+  };
+
+  const handleForgotPasswordMobileSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!/^\d{10}$/.test(recoveryMobile)) {
+        alert('Please enter a valid 10-digit mobile number.');
+        return;
+    }
+    const foundPatient = registeredPatients.find(p => p.mobileNumber === recoveryMobile);
+    if (foundPatient) {
+        setRecoveredPatient(foundPatient);
+        alert(`An OTP has been sent to your mobile number. (For demo, use 123456)`);
+        setView('FORGOT_PASSWORD_OTP');
+    } else {
+        alert('No account found with this mobile number. Please sign up or try another number.');
+    }
+  };
+
+  const handleForgotPasswordOtpSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (recoveryOtpInput === '123456') {
+        alert('Mobile number verified successfully!');
+        setView('FORGOT_PASSWORD_RESET');
+    } else {
+        alert('Invalid OTP. Please try again.');
+    }
+  };
+
+  const handleForgotPasswordResetSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!recoveredPatient) return;
+    if (!newPassword || newPassword !== confirmNewPassword) {
+        alert('Passwords do not match or are empty. Please try again.');
+        return;
+    }
+    
+    onUpdatePassword(recoveredPatient.id, newPassword);
+    
+    alert('Your password has been reset successfully. You can now log in with your new password.');
+    
+    setRecoveryMobile('');
+    setRecoveryOtpInput('');
+    setRecoveredPatient(null);
+    setNewPassword('');
+    setConfirmNewPassword('');
+    setView('LOGIN');
   };
   
   const patientAppointments = useMemo(() => {
     if (!patient) return [];
-    return appointments.filter(a => a.patient.name === patient.name && a.patient.dob === patient.dob);
+    return appointments.filter(a => a.patientId === patient.id);
   }, [appointments, patient]);
 
   const getStatusBadge = (status: Appointment['status']) => {
@@ -179,6 +224,7 @@ const PatientView: React.FC<PatientViewProps> = ({ requestAppointment, appointme
         case 'Scheduled': return 'bg-blue-100 text-blue-800';
         case 'Completed': return 'bg-green-100 text-green-800';
         case 'Pending Confirmation': return 'bg-yellow-100 text-yellow-800';
+        case 'Slot Allocated': return 'bg-purple-100 text-purple-800';
         case 'Cancelled': return 'bg-gray-100 text-gray-800';
     }
   }
@@ -196,14 +242,14 @@ const PatientView: React.FC<PatientViewProps> = ({ requestAppointment, appointme
                 <UserPlus size={20} className="mr-2" /> Sign Up / Register
               </Button>
             </div>
-            {registeredUsers.length > 0 && (
+            {registeredPatients.length > 0 && (
                  <div className="text-center text-xs text-gray-500 -mt-4 mb-4 p-2 bg-gray-50 rounded">
                     <p>For demo purposes, you can log in with:</p>
                     <div className="flex flex-wrap gap-2 justify-center mt-1">
-                        {registeredUsers.map(u => <code key={u.id} className="font-mono bg-gray-200 px-1 rounded">PID{String(u.id).padStart(6, '0')}</code>)}
+                        {registeredPatients.slice(0, 2).map(u => <code key={u.id} className="font-mono bg-gray-200 px-1 rounded">PID{String(u.id).padStart(6, '0')}</code>)}
                     </div>
                      <div className="flex flex-wrap gap-2 justify-center mt-1">
-                        {registeredUsers.map(u => <code key={u.id} className="font-mono bg-gray-200 px-1 rounded">{u.mobileNumber}</code>)}
+                        {registeredPatients.slice(0, 2).map(u => <code key={u.id} className="font-mono bg-gray-200 px-1 rounded">{u.mobileNumber}</code>)}
                     </div>
                  </div>
             )}
@@ -239,16 +285,16 @@ const PatientView: React.FC<PatientViewProps> = ({ requestAppointment, appointme
                       const numericValue = value.replace(/[^0-9]/g, '');
                       setLoginIdentifier(numericValue.slice(0, 10));
                     } else {
-                      setLoginIdentifier(value.slice(0, 9));
+                      setLoginIdentifier(value.slice(0, 10));
                     }
                   }}
                   className="mt-1 block w-full input"
-                  placeholder={identifierType === 'PID' ? 'e.g., PID123456' : 'e.g., 9876543210'}
+                  placeholder={identifierType === 'PID' ? 'e.g., PID100001' : 'e.g., 9876543210'}
                   required
                 />
               </div>
                <div>
-                  <label htmlFor="password" className="block text-sm font-medium text-gray-700">Password</label>
+                  <label htmlFor="password" class="block text-sm font-medium text-gray-700">Password</label>
                   <input 
                     type="password" 
                     id="password" 
@@ -260,7 +306,14 @@ const PatientView: React.FC<PatientViewProps> = ({ requestAppointment, appointme
                   />
                 </div>
                 <div className="text-sm">
-                    <a href="#" className="font-medium text-secondary hover:text-secondary/80">Forgot Password/PID?</a>
+                    <button type="button" onClick={() => {
+                        setRecoveryMobile('');
+                        setRecoveryOtpInput('');
+                        setRecoveredPatient(null);
+                        setNewPassword('');
+                        setConfirmNewPassword('');
+                        setView('FORGOT_PASSWORD_MOBILE');
+                    }} className="font-medium text-secondary hover:text-secondary/80">Forgot Password/PID?</button>
                 </div>
               <div className="flex items-center justify-between pt-2">
                 <Button type="button" variant="secondary" onClick={() => setView('AUTH')}>Back</Button>
@@ -371,7 +424,7 @@ const PatientView: React.FC<PatientViewProps> = ({ requestAppointment, appointme
                         <input type="password" id="password-signup" name="password" value={signupData.password} onChange={handleSignupChange} className="mt-1 block w-full input" required />
                     </div>
                      <div>
-                        <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700">Confirm Password <span className="text-danger">*</span></label>
+                        <label htmlFor="confirmPassword" class="block text-sm font-medium text-gray-700">Confirm Password <span className="text-danger">*</span></label>
                         <input type="password" id="confirmPassword" name="confirmPassword" value={signupData.confirmPassword} onChange={handleSignupChange} className="mt-1 block w-full input" required />
                     </div>
                   </div>
@@ -383,6 +436,93 @@ const PatientView: React.FC<PatientViewProps> = ({ requestAppointment, appointme
               </div>
             </form>
           </Card>
+        );
+      case 'FORGOT_PASSWORD_MOBILE':
+        return (
+            <Card title="Recover Account">
+                <form onSubmit={handleForgotPasswordMobileSubmit} className="space-y-4">
+                    <div>
+                        <label htmlFor="recoveryMobile" className="block text-sm font-medium text-gray-700">Enter your registered mobile number</label>
+                        <input
+                            type="tel"
+                            id="recoveryMobile"
+                            value={recoveryMobile}
+                            onChange={(e) => {
+                                const numericValue = e.target.value.replace(/[^0-9]/g, '');
+                                setRecoveryMobile(numericValue.slice(0, 10));
+                            }}
+                            className="mt-1 block w-full input"
+                            placeholder="10-digit number"
+                            required
+                        />
+                    </div>
+                    <div className="flex items-center justify-between pt-2">
+                        <Button type="button" variant="secondary" onClick={() => setView('LOGIN')}>Back to Login</Button>
+                        <Button type="submit">Send OTP</Button>
+                    </div>
+                </form>
+            </Card>
+        );
+      case 'FORGOT_PASSWORD_OTP':
+        return (
+            <Card title="Verify Mobile Number">
+                <form onSubmit={handleForgotPasswordOtpSubmit} className="space-y-4">
+                    <p className="text-sm text-gray-600">An OTP has been sent to +91 {recoveryMobile}. (For demo, use 123456)</p>
+                    <div>
+                        <label htmlFor="recoveryOtpInput" className="block text-sm font-medium text-gray-700">Enter OTP</label>
+                        <input
+                            type="text"
+                            id="recoveryOtpInput"
+                            value={recoveryOtpInput}
+                            onChange={(e) => setRecoveryOtpInput(e.target.value)}
+                            className="mt-1 block w-full input"
+                            maxLength={6}
+                            required
+                        />
+                    </div>
+                    <div className="flex items-center justify-between pt-2">
+                        <Button type="button" variant="secondary" onClick={() => setView('FORGOT_PASSWORD_MOBILE')}>Back</Button>
+                        <Button type="submit">Verify & Proceed</Button>
+                    </div>
+                </form>
+            </Card>
+        );
+      case 'FORGOT_PASSWORD_RESET':
+        if (!recoveredPatient) return null; // Should not happen
+        return (
+            <Card title="Account Found & Reset Password">
+                <div className="p-4 mb-4 bg-green-50 border border-green-200 rounded-lg">
+                    <h4 className="font-semibold text-green-800">Your Patient ID is:</h4>
+                    <p className="text-lg font-bold text-center text-dark mt-1">PID{String(recoveredPatient.id).padStart(6, '0')}</p>
+                </div>
+                <form onSubmit={handleForgotPasswordResetSubmit} className="space-y-4">
+                    <div>
+                        <label htmlFor="newPassword" class="block text-sm font-medium text-gray-700">New Password</label>
+                        <input
+                            type="password"
+                            id="newPassword"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                            className="mt-1 block w-full input"
+                            required
+                        />
+                    </div>
+                    <div>
+                        <label htmlFor="confirmNewPassword" class="block text-sm font-medium text-gray-700">Confirm New Password</label>
+                        <input
+                            type="password"
+                            id="confirmNewPassword"
+                            value={confirmNewPassword}
+                            onChange={(e) => setConfirmNewPassword(e.target.value)}
+                            className="mt-1 block w-full input"
+                            required
+                        />
+                    </div>
+                    <div className="flex items-center justify-end pt-2">
+                        <Button type="submit">Reset Password</Button>
+                    </div>
+                </form>
+            </Card>
         );
       case 'LOGGED_IN':
         if (!patient) return null;
@@ -474,8 +614,12 @@ const PatientView: React.FC<PatientViewProps> = ({ requestAppointment, appointme
                                     {patientAppointments.map(appt => (
                                         <li key={appt.id} className="p-4 bg-gray-50 rounded-lg border flex justify-between items-center">
                                             <div>
-                                                <p className="font-semibold text-brand">{appt.patient.department}</p>
-                                                <p className="text-sm text-gray-600">{new Date(appt.date).toLocaleString()}</p>
+                                                <p className="font-semibold text-brand">{appt.doctor === 'To be assigned' ? appt.patient.department : appt.doctor}</p>
+                                                <p className="text-sm text-gray-600">
+                                                    {new Date(appt.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                                                    {' at '}
+                                                    {new Date(appt.date).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}
+                                                </p>
                                                 <p className="text-sm text-gray-500 mt-1">Reason: {appt.reason}</p>
                                             </div>
                                             <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusBadge(appt.status)}`}>{appt.status}</span>
@@ -489,7 +633,8 @@ const PatientView: React.FC<PatientViewProps> = ({ requestAppointment, appointme
             ) : (
                 <AppointmentBookingScreen 
                     onBack={() => { setLoggedInView('DASHBOARD'); setSubmitted(false); }} 
-                    onSubmit={handleAppointmentSubmit} 
+                    onSubmit={handleAppointmentSubmit}
+                    appointments={appointments}
                 />
             )}
           </div>

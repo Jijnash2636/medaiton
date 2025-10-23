@@ -1,9 +1,11 @@
+
 import React, { useState } from 'react';
-import { Appointment, Patient } from '../types';
+import { Appointment, Patient, ProfessionalUser } from '../types';
 import Card from './common/Card';
 import Button from './common/Button';
 import Spinner from './common/Spinner';
 import { generateSOAPNotes } from '../services/geminiService';
+import PatientProfileView from './PatientProfileView';
 import { ArrowLeft } from 'lucide-react';
 
 const getAge = (dobString: string): number => {
@@ -56,6 +58,9 @@ const DoctorModal: React.FC<{ appointment: Appointment, onClose: () => void, onS
                              <p><strong>Triage Summary:</strong> {patient.triageSuggestion.summary}</p>
                              <p><strong>Classification:</strong> {patient.triageSuggestion.classification}</p>
                          </div>}
+                         {patient.chiefComplaintByIntern && <div className="mt-2">
+                            <p><strong>Intern's Note:</strong> {patient.chiefComplaintByIntern}</p>
+                         </div>}
                     </div>
                     <div>
                         <h4 className="font-semibold text-gray-800 mb-2">Doctor Copilot AI</h4>
@@ -77,7 +82,7 @@ const DoctorModal: React.FC<{ appointment: Appointment, onClose: () => void, onS
     )
 }
 
-const AppointmentRow: React.FC<{appointment: Appointment, onSelect: (appt: Appointment) => void}> = ({appointment, onSelect}) => {
+const AppointmentRow: React.FC<{appointment: Appointment, onSelect: (appt: Appointment) => void, onViewProfile: (patient: Patient) => void}> = ({appointment, onSelect, onViewProfile}) => {
     const classification = appointment.patient.triageSuggestion?.classification;
     const rowColor = {
         'Critical': 'bg-red-50 border-l-4 border-danger',
@@ -92,7 +97,9 @@ const AppointmentRow: React.FC<{appointment: Appointment, onSelect: (appt: Appoi
     
     return (
       <tr className={`${rowColor[classification || 'Stable']} hover:bg-gray-100`}>
-        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{appointment.patient.name}</td>
+        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+          <span className="cursor-pointer hover:underline" onClick={() => onViewProfile(appointment.patient)}>{appointment.patient.name}</span>
+        </td>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{new Date(appointment.date).toLocaleTimeString()}</td>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{classification}</td>
         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 max-w-xs truncate">{appointment.reason}</td>
@@ -110,12 +117,23 @@ const AppointmentRow: React.FC<{appointment: Appointment, onSelect: (appt: Appoi
     )
 }
 
-const DoctorView: React.FC<{ appointments: Appointment[], addDoctorNote: (id: number, note: string) => void, onBack: () => void }> = ({ appointments, addDoctorNote, onBack }) => {
+interface DoctorViewProps {
+    user: ProfessionalUser;
+    appointments: Appointment[];
+    addDoctorNote: (id: number, note: string) => void;
+    onBack: () => void;
+}
+
+const DoctorView: React.FC<DoctorViewProps> = ({ user, appointments, addDoctorNote, onBack }) => {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [viewingPatient, setViewingPatient] = useState<Patient | null>(null);
   
-  const emergencyQueue = appointments.filter(a => a.patient.triageSuggestion?.classification === 'Critical' && a.status === 'Scheduled');
-  const scheduledAppointments = appointments.filter(a => a.patient.triageSuggestion?.classification !== 'Critical' && a.status === 'Scheduled');
-  const completedAppointments = appointments.filter(a => a.status === 'Completed');
+  // Doctor's queue should be based on the doctor field in the appointment, which is set to the department name by the intern.
+  const myAppointments = appointments.filter(a => a.doctor === 'Cardiology'); // This would be dynamic in a real app
+  
+  const emergencyQueue = myAppointments.filter(a => a.patient.triageSuggestion?.classification === 'Critical' && a.status === 'Scheduled');
+  const scheduledAppointments = myAppointments.filter(a => a.patient.triageSuggestion?.classification !== 'Critical' && a.status === 'Scheduled');
+  const completedAppointments = myAppointments.filter(a => a.status === 'Completed');
   
   const handleSaveNote = (id: number, note: string) => {
     addDoctorNote(id, note);
@@ -139,7 +157,7 @@ const DoctorView: React.FC<{ appointments: Appointment[], addDoctorNote: (id: nu
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {data.map(appt => <AppointmentRow key={appt.id} appointment={appt} onSelect={setSelectedAppointment} />)}
+                    {data.map(appt => <AppointmentRow key={appt.id} appointment={appt} onSelect={setSelectedAppointment} onViewProfile={setViewingPatient} />)}
                   </tbody>
                 </table>
             </div>
@@ -153,7 +171,8 @@ const DoctorView: React.FC<{ appointments: Appointment[], addDoctorNote: (id: nu
             <ArrowLeft size={16} className="mr-2" />
             Back to Dashboard
         </Button>
-      <h2 className="text-3xl font-bold text-dark mb-6">Doctor's Dashboard (DID000067)</h2>
+      <h2 className="text-3xl font-bold text-dark mb-6">Doctor's Dashboard ({user.name})</h2>
+      {viewingPatient && <PatientProfileView patient={viewingPatient} appointments={appointments} onClose={() => setViewingPatient(null)} />}
       {selectedAppointment && <DoctorModal appointment={selectedAppointment} onClose={() => setSelectedAppointment(null)} onSaveNote={handleSaveNote} />}
       
       {renderTable('Emergency Queue', emergencyQueue)}
